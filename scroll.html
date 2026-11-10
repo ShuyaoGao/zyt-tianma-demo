@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>滚动环绕 · 金翼天马</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/demo.css">
+<script type="importmap">{"imports":{"playcanvas":"./lib/playcanvas.mjs"}}</script>
+</head><body>
+<a class="back" href="index.html" style="z-index:30">← 返回</a>
+
+<section class="stage" id="stage" style="height:700vh">
+  <div class="stage-sticky">
+    <canvas id="c" aria-label="金翼天马三维模型,随页面滚动环绕旋转"></canvas>
+
+    <div class="s-card l" data-from="0" data-to="0.2">
+      <div class="eb">Zhongyi Tang · 3D Archive</div>
+      <h1>Golden-Winged Horse</h1>
+      <div class="cn">金翼天马 <small style="font-size:.55em;color:var(--muted)">(暂名)</small></div>
+      <p>Reconstructed from 20 gallery photographs.</p>
+      <p class="zh">展厅实拍 20 张照片重建。</p>
+    </div>
+    <div class="s-card r" data-from="0.2" data-to="0.45">
+      <div class="eb">Not a video · 不是视频</div>
+      <p>Every frame you see is drawn live in your browser. Scroll down and the camera circles the piece; scroll back and it turns the other way.</p>
+      <p class="zh">你看到的每一帧都是浏览器实时画出来的。往下滚,镜头绕着作品转;往回滚,倒着转。</p>
+    </div>
+    <div class="s-card l" data-from="0.45" data-to="0.72">
+      <div class="eb">From photographs · 从照片到三维</div>
+      <p>The photographer walked twice around the display case. Software recovered where each photograph was taken, then rebuilt the piece as hundreds of thousands of tiny coloured light points — Gaussian splatting.</p>
+      <p class="zh">摄影师绕展柜走了两圈。程序先算出每张照片的拍摄位置,再把作品还原成几十万个带颜色的微小光点,这就是"高斯泼溅"。</p>
+    </div>
+    <div class="s-card r" data-from="0.72" data-to="1">
+      <div class="eb">Private Viewing · 预约鉴赏</div>
+      <h2>Golden-Winged Horse</h2>
+      <p>Dimensions and materials on request · 规格详询</p>
+      <p>Price upon request · 价格详询</p>
+      <a class="btn primary" href="viewer.html">Explore in 3D · 自由查看</a>
+    </div>
+
+    <div class="prog" aria-hidden="true"><i id="pbar"></i><span id="pdeg">0°</span></div>
+    <div class="hint" id="hint">SCROLL · 向下滚动</div>
+  </div>
+</section>
+
+<section class="outro">
+  <div>
+    <div class="eb" style="color:var(--red)">360° · 一圈看完</div>
+    <h2>想停下来慢慢看?</h2>
+    <p>自由查看页可以拖动旋转、放大看金翼的细节、从任意角度停住。</p>
+    <a class="btn primary" href="viewer.html">自由查看 3D</a>
+    <a class="btn" href="index.html">返回演示首页</a>
+  </div>
+</section>
+
+<div class="loader" id="loader"><div class="box">
+  <div class="eb">中艺堂 · Zhongyi Tang</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="msg" id="msg">正在加载三维模型…</div>
+</div></div>
+
+<script type="module">
+import { loadMeta, createApp, addModel, placeOrbit, fitDistance } from "./assets/splat-scene.mjs";
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const FORCE_P = params.has("p") ? Math.min(1, Math.max(0, parseFloat(params.get("p")))) : null;   // 截图验收用
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const fail = (e) => { $("loader").classList.add("err"); $("msg").textContent = "加载失败:" + (e.message || e) + "。请刷新页面重试。"; console.error(e); };
+
+try {
+  const meta = await loadMeta("models/tianma.json");
+  const { app, camera } = createApp($("c"));
+  await addModel(app, meta, location.href, (f) => $("bar").style.width = (f * 100).toFixed(0) + "%");
+  const T = meta.target, O = meta.orbit;
+  const stage = $("stage"), cards = [...document.querySelectorAll(".s-card")];
+
+  function target() {
+    if (FORCE_P !== null) return FORCE_P;
+    const r = stage.getBoundingClientRect(), total = r.height - innerHeight;
+    return total <= 0 ? 0 : Math.min(1, Math.max(0, -r.top / total));
+  }
+
+  // 镜头路线:转满一圈;中段抬高一点、拉近一点,开头结尾回到正面平视
+  function pose(p) {
+    const arc = Math.sin(Math.PI * p);
+    return {
+      az: 360 * p,
+      el: O.elevation + 12 * arc,
+      d: fitDistance(O.distance, $("c")) * (1 - 0.14 * arc),
+    };
+  }
+
+  function drawCards(p) {
+    for (const c of cards) {
+      const a = +c.dataset.from, b = +c.dataset.to, f = (b - a) * 0.15;
+      let o = Math.max(0, Math.min(1, (p - a) / f, (b - p) / f));
+      if (a === 0 && p <= a + f) o = 1;
+      if (b === 1 && p >= b - f) o = 1;
+      c.style.opacity = o.toFixed(3);
+      c.style.transform = `translateY(${((1 - o) * 24).toFixed(1)}px)`;
+      c.style.pointerEvents = o > 0.5 ? "auto" : "none";
+    }
+    $("pbar").style.height = (p * 100).toFixed(2) + "%";
+    $("pdeg").style.top = (p * 100).toFixed(2) + "%";
+    $("pdeg").textContent = Math.round(p * 360) + "°";
+    $("hint").style.opacity = p > 0.03 ? 0 : 1;
+  }
+
+  // 惯性:显示进度追着滚动进度走,按时间衰减(与帧率无关)
+  let shown = target();
+  app.on("update", (dt) => {
+    const t = target();
+    shown = (reduce || FORCE_P !== null) ? t : shown + (t - shown) * (1 - Math.pow(0.0008, dt));
+    if (Math.abs(t - shown) < 1e-4) shown = t;
+    const { az, el, d } = pose(shown);
+    placeOrbit(camera, T, az, el, d);
+    drawCards(shown);
+  });
+  $("loader").classList.add("done");
+} catch (e) { fail(e); }
+</script>
+</body></html>

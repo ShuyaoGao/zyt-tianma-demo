@@ -1,0 +1,52 @@
+{
+ "file": "models/tianma.sog",
+ "splats": 731350,
+ "size_mb": 12.8,
+ "transform": {
+  "position": [
+   -0.004694035952441839,
+   0.9920845432941777,
+   0.10716621306961638
+  ],
+  "rotation": [
+   0.9994744237014194,
+   0.00588003732968173,
+   0.014167956660607507,
+   0.028558195527382226
+  ],
+  "scale": 0.6890026168873148
+ },
+ "target": [
+  0.0,
+  0.5,
+  0.0
+ ],
+ "orbit": {
+  "distance": 2.491,
+  "elevation": 10.1,
+  "min_distance": 0.872,
+  "max_distance": 5.48
+ },
+ "detail": {
+  "target": [
+   0.0,
+   0.72,
+   0.0
+  ],
+  "azimuth": 35,
+  "elevation": 18,
+  "distance": 1.993
+ },
+ "source": {
+  "photos": 20,
+  "ply": "v2_30000.ply",
+  "crop": {
+   "radius": 1.0,
+   "bottom": -1.0,
+   "top": 0.8
+  },
+  "camera_elevation_deg": 10.1,
+  "height_units": 1.4514,
+  "version": "v2"
+ }
+}

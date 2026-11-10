@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三维演示 v2 · 金翼天马</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/demo.css">
+</head><body>
+<main class="home">
+  <div class="eb">中艺堂 · Zhongyi Tang · 3D Demo</div>
+  <h1>Golden-Winged Horse</h1>
+  <div class="cn">金翼天马 · 三维演示 <small style="font-size:.55em;color:var(--muted)">(作品名为暂名,待公司确认)</small></div>
+  <p class="lead">用展厅里绕展柜拍的 20 张照片,还原出这件作品的三维模型(第二版:自动抠图 + 原分辨率训练)。下面两个演示用的是同一个模型:一个可以自己拖着转,一个跟着网页滚动自动绕一圈。</p>
+
+  <div class="cards">
+    <a class="card" href="viewer.html">
+      <img src="assets/card_viewer.jpg" alt="三维模型自由查看">
+      <div class="t">
+        <div class="eb">演示一 · Free view</div>
+        <h2>自由查看</h2>
+        <p>拖动旋转、滚轮缩放、凑近看金翼。停手几秒后作品会自己慢慢转。</p>
+      </div>
+    </a>
+    <a class="card" href="scroll.html">
+      <img src="assets/card_scroll.jpg" alt="随页面滚动环绕作品">
+      <div class="t">
+        <div class="eb">演示二 · Scroll to orbit</div>
+        <h2>滚动环绕</h2>
+        <p>网页往下滚,镜头绕作品转一圈;往回滚,倒着转。右侧金线显示转到了多少度。</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="facts">
+    <div><b>20</b>张展厅照片(两圈 × 10 个角度)</div>
+    <div><b id="f-splats">—</b>个高斯点</div>
+    <div><b id="f-size">—</b>MB 模型大小</div>
+    <div><b>0</b>帧视频:每一帧都是实时画的</div>
+  </div>
+  <p class="note">
+    和网站上现有的"滚动转台"(序列帧)比:序列帧只能沿拍摄路线来回放,这里镜头可以停在任何角度、任何远近。
+    第二版先用 AI 把每张照片里的作品自动抠出来,再按原照片分辨率训练:背景和展柜玻璃的反光不再进入模型,翅膀上的鳞片纹理也清楚了。
+    隔着玻璃拍摄、只有平视两圈,俯视角度和落在作品上的反光仍有局限;正式拍摄去掉玻璃、加一圈高角度,效果会更好。
+  </p>
+  <p class="note"><a href="v1/index.html" style="color:inherit">查看第一版(v1)作对比 →</a></p>
+</main>
+<script>
+fetch("models/tianma.json").then(r => r.json()).then(m => {
+  document.getElementById("f-splats").textContent = m.splats.toLocaleString();
+  document.getElementById("f-size").textContent = m.size_mb;
+}).catch(() => {});
+</script>
+</body></html>

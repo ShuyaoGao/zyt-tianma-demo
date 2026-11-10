@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>三维查看 · 金翼天马</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/demo.css">
+<script type="importmap">{"imports":{"playcanvas":"./lib/playcanvas.mjs"}}</script>
+</head><body class="viewer">
+<canvas id="c" aria-label="金翼天马三维模型,可拖动旋转"></canvas>
+
+<div class="panel" id="panel">
+  <button class="btn toggle" id="toggle" aria-expanded="true">收起</button>
+  <div class="eb">3D · Gaussian Splatting</div>
+  <h1>Golden-Winged Horse</h1>
+  <div class="cn">金翼天马 <small style="font-size:12px;color:var(--muted)">(暂名)</small></div>
+  <div class="body">
+    <div class="sub">由展厅实拍的 20 张照片重建。不是视频,也不是建模软件做的,而是从照片里还原出的真实三维场景:任意角度、任意远近都是实时画出来的。</div>
+    <div class="grp">视角</div>
+    <div class="btns" id="views">
+      <button class="btn" data-v="front">正面</button>
+      <button class="btn" data-v="side">侧面</button>
+      <button class="btn" data-v="back">背面</button>
+      <button class="btn" data-v="top">俯视</button>
+      <button class="btn" data-v="close">凑近看金翼</button>
+    </div>
+    <div class="grp">展示</div>
+    <div class="btns">
+      <button class="btn on" id="spin">自动旋转</button>
+      <a class="btn" href="scroll.html">滚动版 →</a>
+    </div>
+    <div class="stat" id="stat"></div>
+  </div>
+</div>
+<div class="help">拖动 旋转 · 滚轮 / 双指 缩放 · 右键 / 三指 平移<br>停手 4 秒后自动旋转</div>
+<a class="back" href="index.html">← 返回</a>
+
+<div class="loader" id="loader"><div class="box">
+  <div class="eb">中艺堂 · Zhongyi Tang</div>
+  <div class="bar"><i id="bar"></i></div>
+  <div class="msg" id="msg">正在加载三维模型…</div>
+</div></div>
+
+<script type="module">
+import { pc, loadMeta, createApp, addModel, placeOrbit, fitDistance } from "./assets/splat-scene.mjs";
+import { CameraControls } from "./lib/camera-controls.mjs";
+
+const $ = (id) => document.getElementById(id);
+const fail = (e) => { $("loader").classList.add("err"); $("msg").textContent = "加载失败:" + (e.message || e) + "。请刷新页面重试。"; console.error(e); };
+
+try {
+  const meta = await loadMeta("models/tianma.json");
+  const { app, camera } = createApp($("c"), { input: true });
+  camera.addComponent("script");
+  const T = meta.target, O = meta.orbit;
+
+  // 转台:自动旋转时转的是作品,不是相机,这样不会和手动拖动打架
+  // 模型已摆成"转轴过原点",转台放原点即可
+  const turntable = new pc.Entity("turntable");
+  app.root.addChild(turntable);
+  const { splats } = await addModel(app, meta, location.href, (f) => $("bar").style.width = (f * 100).toFixed(0) + "%", turntable);
+
+  const controls = camera.script.create(CameraControls, { properties: {
+    enableFly: false, focusPoint: new pc.Vec3(T[0], T[1], T[2]),
+    zoomRange: new pc.Vec2(O.min_distance, O.max_distance), pitchRange: new pc.Vec2(-85, 30),
+  }});
+
+  const VIEWS = {
+    front: [0, O.elevation, O.distance], side: [90, O.elevation, O.distance], back: [180, O.elevation, O.distance],
+    top: [20, 60, O.distance * 1.05], close: [meta.detail.azimuth, meta.detail.elevation, meta.detail.distance],
+  };
+  const tmp = new pc.Entity();
+  function go(k) {
+    const [az, el, d0] = VIEWS[k];
+    const d = k === "close" ? d0 : fitDistance(d0, $("c"));
+    const tgt = k === "close" ? meta.detail.target : T;
+    placeOrbit(tmp, tgt, az, el, d);
+    turntable.setLocalEulerAngles(0, 0, 0);
+    controls.reset(new pc.Vec3(...tgt), tmp.getPosition().clone());
+    document.querySelectorAll("#views .btn").forEach(b => b.classList.toggle("on", b.dataset.v === k));
+    idleT = performance.now();
+  }
+  document.querySelectorAll("#views .btn").forEach(b => b.onclick = () => go(b.dataset.v));
+
+  // 自动旋转:开关打开、且 4 秒没有操作时,转台慢慢转
+  let spin = !matchMedia("(prefers-reduced-motion: reduce)").matches, idleT = -1e9;
+  $("spin").classList.toggle("on", spin);
+  $("spin").onclick = () => { spin = !spin; $("spin").classList.toggle("on", spin); idleT = -1e9; };
+  const touch = () => { idleT = performance.now(); };
+  ["pointerdown", "wheel", "touchstart", "keydown"].forEach(ev => $("c").addEventListener(ev, touch, { passive: true }));
+  app.on("update", (dt) => {
+    if (spin && performance.now() - idleT > 4000) turntable.rotateLocal(0, dt * 14, 0);
+  });
+
+  const setMin = (p) => { $("panel").classList.toggle("min", p); $("toggle").textContent = p ? "说明" : "收起"; $("toggle").setAttribute("aria-expanded", String(!p)); };
+  $("toggle").onclick = () => setMin(!$("panel").classList.contains("min"));
+  if (matchMedia("(max-width:640px)").matches) setMin(true);   // 手机上默认收起,先看作品
+  $("stat").textContent = `高斯点 ${splats.toLocaleString()} 个 · 来源照片 ${meta.source.photos} 张 · 模型 ${meta.size_mb} MB`;
+
+  const k0 = new URLSearchParams(location.search).get("v");
+  go(VIEWS[k0] ? k0 : "front");
+  idleT = performance.now() - 2500;
+  $("loader").classList.add("done");
+} catch (e) { fail(e); }
+</script>
+</body></html>
